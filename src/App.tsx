@@ -9,11 +9,14 @@ function App() {
   const dataArrayRef = useRef<Uint8Array>(new Uint8Array(0));
   const isCallInitRef = useRef(false);
   const screenLockRef = useRef<WakeLockSentinel>();
+  const maxVolumeHightRef = useRef(0); // 0-100 vh
+  const acceleration = useRef(0.5);
 
   const [isStart, setIsStart] = useState(false);
   const [isFirstStart, setIsFirstStart] = useState(true);
-  const [volume, setVolume] = useState(0);
+  // const [volume, setVolume] = useState(0);
   const [showSidePanel, setShowSidePanel] = useState(false);
+  const [musicBar, setMusicBarArr] = useState<string[]>([]);
 
   function keepAwake() {
     if (!("wakeLock" in navigator)) return;
@@ -72,7 +75,35 @@ function App() {
     }
 
     const volumeValue = Math.sqrt(sumSquares / dataArray.length);
-    setVolume(volumeValue);
+    // setVolume(volumeValue);
+
+    const activeBarNumber = Math.min(
+      BAR_TOTAL,
+      Math.floor(volumeValue * (BAR_TOTAL / 100))
+    );
+    const colorArr = Array.from(Array(activeBarNumber).keys()).map(
+      (num) =>
+        `hsl(${280 - 280 * ((activeBarNumber - num) / BAR_TOTAL)}, 80%, 60%)`
+    );
+    setMusicBarArr(colorArr);
+
+    const barNumberToHundred = activeBarNumber * (100 / BAR_TOTAL);
+    if (barNumberToHundred < maxVolumeHightRef.current) {
+      if (
+        maxVolumeHightRef.current - acceleration.current <
+        barNumberToHundred
+      ) {
+        maxVolumeHightRef.current = barNumberToHundred + 0.1;
+        acceleration.current = 0.5;
+      } else {
+        maxVolumeHightRef.current =
+          maxVolumeHightRef.current - acceleration.current;
+        acceleration.current += 0.8;
+      }
+    } else {
+      maxVolumeHightRef.current = barNumberToHundred + 0.1;
+      acceleration.current = 0.5;
+    }
   }
 
   function handleClick() {
@@ -114,17 +145,7 @@ function App() {
     if (isCallInitRef.current) return;
     init();
     isCallInitRef.current = true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const activeBarNumber = Math.min(
-    BAR_TOTAL,
-    Math.floor(volume * (BAR_TOTAL / 100))
-  );
-  const barColorArr = Array.from(Array(activeBarNumber).keys()).map(
-    (num) =>
-      `hsl(${280 - 280 * ((activeBarNumber - num) / BAR_TOTAL)}, 80%, 60%)`
-  );
 
   return (
     <Root>
@@ -146,8 +167,9 @@ function App() {
         </InputRangeWrapper>
         <PanelSettingTitle>灵敏度</PanelSettingTitle>
       </SidePanel>
+      <MaxVolumeBar $bottomVh={maxVolumeHightRef.current} />
       <MusicBarContainer>
-        {barColorArr.map((color, index) => (
+        {musicBar.map((color, index) => (
           <MusicBar key={index} $color={color}></MusicBar>
         ))}
       </MusicBarContainer>
@@ -292,6 +314,13 @@ const StartMask = styled.div`
   color: #fff;
   opacity: 0.8;
   user-select: none;
+`;
+
+const MaxVolumeBar = styled.div<{ $bottomVh: number }>`
+  border-top: 1vh solid #ffffff;
+  position: fixed;
+  width: 100%;
+  bottom: ${({ $bottomVh: bottomVh }) => bottomVh}vh;
 `;
 
 export default App;
