@@ -168,14 +168,15 @@ function App() {
 }
 
 const Root = styled.div`
-  height: 100vh;
+  height: 100%;
+  width: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   background: #282830;
-  position: relative;
+  position: fixed;
 `;
 
 const Header = styled.div`
@@ -194,8 +195,8 @@ const Header = styled.div`
 
 const SidePanel = styled.div<{ $isActive: boolean }>`
   position: fixed;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   background: #4a4f59;
   transition: left 0.5s ease;
   z-index: 1;
@@ -204,7 +205,7 @@ const SidePanel = styled.div<{ $isActive: boolean }>`
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  left: ${(props) => (props.$isActive ? 0 : "-100vw")};
+  left: ${(props) => (props.$isActive ? 0 : "-100%")};
   color: #ffffffaa;
 `;
 
@@ -275,7 +276,7 @@ const InputRange = styled.input`
 `;
 
 const MusicBarContainer = styled.div`
-  height: 100vh;
+  height: 100%;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -283,14 +284,14 @@ const MusicBarContainer = styled.div`
 `;
 
 const MusicBar = styled.div<{ $color: string }>`
-  height: calc(100vh / ${BAR_TOTAL} - 4px);
+  height: calc(100% / ${BAR_TOTAL} - 4px);
   margin-top: 4px;
   background: ${(props) => props.$color};
 `;
 
 const StartMask = styled.div`
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
