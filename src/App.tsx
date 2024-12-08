@@ -1,5 +1,6 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
+import { fullScreen, keepAwake } from "./utils";
 
 const BAR_TOTAL = 24;
 
@@ -8,39 +9,13 @@ function App() {
   const analyserNodeRef = useRef<AnalyserNode | undefined>(undefined);
   const dataArrayRef = useRef<Uint8Array>(new Uint8Array(0));
   const isCallInitRef = useRef(false);
-  const screenLockRef = useRef<WakeLockSentinel>();
-  const maxVolumeHightRef = useRef(0); // 0-100 vh
-  const acceleration = useRef(0.5);
+  const maxVolBarHightRef = useRef(0); // 0-100 vh
+  const maxVolBarAccelerationRef = useRef(0.5);
 
   const [isStart, setIsStart] = useState(false);
   const [isFirstStart, setIsFirstStart] = useState(true);
-  // const [volume, setVolume] = useState(0);
   const [showSidePanel, setShowSidePanel] = useState(false);
-  const [musicBar, setMusicBarArr] = useState<string[]>([]);
-
-  function keepAwake() {
-    if (!("wakeLock" in navigator)) return;
-    function getScreenLock() {
-      navigator.wakeLock.request("screen").then((lock) => {
-        screenLockRef.current = lock;
-      });
-    }
-
-    getScreenLock();
-
-    document.addEventListener("visibilitychange", () => {
-      if (
-        screenLockRef.current !== null &&
-        document.visibilityState === "visible"
-      ) {
-        getScreenLock();
-      }
-    });
-  }
-
-  function fullScreen() {
-    document.querySelector("html")?.requestFullscreen();
-  }
+  const [musicBarColors, setMusicBarColors] = useState<string[]>([]);
 
   function initAudio() {
     navigator.mediaDevices
@@ -52,9 +27,8 @@ function App() {
         mediaStreamNode.connect(analyserNode);
         analyserNode.fftSize = 64;
         analyserNode.smoothingTimeConstant = 0.1;
-        const fftSize = analyserNode.fftSize;
         analyserNodeRef.current = analyserNode;
-        const dataArray = new Uint8Array(fftSize);
+        const dataArray = new Uint8Array(analyserNode.fftSize);
         dataArrayRef.current = dataArray;
       });
   }
@@ -64,7 +38,7 @@ function App() {
     initAudio();
   }
 
-  function refreshVolume() {
+  function getVolume() {
     const dataArray = dataArrayRef.current;
     const analyserNode = analyserNodeRef.current!;
     analyserNode.getByteFrequencyData(dataArray);
@@ -74,41 +48,53 @@ function App() {
       sumSquares += amplitude * amplitude;
     }
 
-    const volumeValue = Math.sqrt(sumSquares / dataArray.length);
-    // setVolume(volumeValue);
+    const volume = Math.sqrt(sumSquares / dataArray.length);
+    return volume;
+  }
 
-    const activeBarNumber = Math.min(
-      BAR_TOTAL,
-      Math.floor(volumeValue * (BAR_TOTAL / 100))
-    );
+  function setActiveBarColors(activeBarNumber: number) {
     const colorArr = Array.from(Array(activeBarNumber).keys()).map(
       (num) =>
         `hsl(${280 - 280 * ((activeBarNumber - num) / BAR_TOTAL)}, 80%, 60%)`
     );
-    setMusicBarArr(colorArr);
+    setMusicBarColors(colorArr);
+  }
 
+  function setMaxVolumeBarPostion(activeBarNumber: number) {
     const barNumberToHundred = activeBarNumber * (100 / BAR_TOTAL);
-    if (barNumberToHundred < maxVolumeHightRef.current) {
-      if (
-        maxVolumeHightRef.current - acceleration.current <
-        barNumberToHundred
-      ) {
-        maxVolumeHightRef.current = barNumberToHundred + 0.1;
-        acceleration.current = 0.5;
-      } else {
-        maxVolumeHightRef.current =
-          maxVolumeHightRef.current - acceleration.current;
-        acceleration.current += 0.8;
-      }
-    } else {
-      maxVolumeHightRef.current = barNumberToHundred + 0.1;
-      acceleration.current = 0.5;
+
+    const maxBarHight = maxVolBarHightRef.current;
+    const maxBarAccel = maxVolBarAccelerationRef.current;
+
+    const isMaxBarLessActiveBar = maxBarHight < barNumberToHundred;
+    const isMaxBarAfterMinusLessActiveBar =
+      maxBarHight - maxBarAccel < barNumberToHundred;
+
+    if (isMaxBarLessActiveBar || isMaxBarAfterMinusLessActiveBar) {
+      maxVolBarHightRef.current = barNumberToHundred + 0.1;
+      maxVolBarAccelerationRef.current = 0.5;
+      return;
     }
+
+    maxVolBarHightRef.current -= maxBarAccel;
+    maxVolBarAccelerationRef.current += 0.8;
+  }
+
+  function tick() {
+    const volume = getVolume();
+
+    const activeBarNumber = Math.min(
+      BAR_TOTAL,
+      Math.floor(volume * (BAR_TOTAL / 100))
+    );
+
+    setActiveBarColors(activeBarNumber);
+    setMaxVolumeBarPostion(activeBarNumber);
   }
 
   function handleClick() {
     if (!isStart) {
-      intervalNumberRef.current = window.setInterval(refreshVolume, 100);
+      intervalNumberRef.current = window.setInterval(tick, 100);
       setIsStart(true);
       return;
     }
@@ -167,9 +153,9 @@ function App() {
         </InputRangeWrapper>
         <PanelSettingTitle>灵敏度</PanelSettingTitle>
       </SidePanel>
-      <MaxVolumeBar $bottomVh={maxVolumeHightRef.current} />
+      <MaxVolumeBar $bottomVh={maxVolBarHightRef.current} />
       <MusicBarContainer>
-        {musicBar.map((color, index) => (
+        {musicBarColors.map((color, index) => (
           <MusicBar key={index} $color={color}></MusicBar>
         ))}
       </MusicBarContainer>
